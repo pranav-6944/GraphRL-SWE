@@ -1,0 +1,45 @@
+# ============================================================
+# GraphRL-SWE: Graph-Guided RL for Code Agent Navigation
+# Dependencies
+# ============================================================
+
+# --- Core ---
+numpy>=1.24.0
+pandas>=2.0.0
+pyyaml>=6.0
+tqdm>=4.65.0
+rich>=13.0.0
+
+# --- Code Graph Construction ---
+tree-sitter>=0.23.0
+tree-sitter-python>=0.23.0
+tree-sitter-javascript>=0.23.0
+tree-sitter-typescript>=0.23.0
+tree-sitter-java>=0.23.0
+networkx>=3.1
+matplotlib>=3.7.0
+pyvis>=0.3.2
+
+# --- LLM Training & Inference ---
+torch>=2.1.0
+transformers>=4.44.0
+accelerate>=0.30.0
+peft>=0.11.0
+trl>=0.9.0
+bitsandbytes>=0.43.0
+datasets>=2.19.0
+sentencepiece>=0.2.0
+
+# --- SWE-bench & Agent ---
+# swebench  # install from git: pip install git+https://github.com/princeton-nlp/SWE-bench.git
+gitpython>=3.1.40
+docker>=7.0.0
+
+# --- Evaluation & Visualization ---
+scikit-learn>=1.3.0
+seaborn>=0.13.0
+plotly>=5.18.0
+
+# --- Utilities ---
+python-dotenv>=1.0.0
+loguru>=0.7.0

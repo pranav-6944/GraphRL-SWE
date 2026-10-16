@@ -1,0 +1,112 @@
+# ============================================================
+# GraphRL-SWE Default Configuration
+# ============================================================
+
+# --- Project ---
+project:
+  name: "graphrl-swe"
+  seed: 42
+  output_dir: "./outputs"
+  log_level: "INFO"
+
+# --- Model ---
+model:
+  name: "google/gemma-4-4b-it"
+  quantization: "4bit"  # 4-bit QLoRA for T4 GPU
+  max_seq_length: 8192
+  dtype: "bfloat16"
+  trust_remote_code: true
+
+# --- LoRA Configuration ---
+lora:
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  task_type: "CAUSAL_LM"
+
+# --- Code Graph Construction ---
+graph:
+  parser: "tree-sitter"
+  languages:
+    - "python"
+  node_types:
+    - "function"
+    - "class"
+    - "method"
+    - "module"
+    - "variable"
+  edge_types:
+    - "calls"
+    - "imports"
+    - "inherits_from"
+    - "contains"
+    - "references"
+  max_nodes: 5000        # Cap for large repos
+  embedding_dim: 256     # Node embedding dimension
+  cache_dir: "./cache/graphs"
+
+# --- Reward Shaping ---
+rewards:
+  alpha: 0.5             # Weight for test pass/fail reward
+  beta: 0.3              # Weight for graph-guided localization reward
+  gamma: 0.2             # Weight for token efficiency reward
+  graph_distance_metric: "shortest_path"  # or "jaccard", "personalized_pagerank"
+  max_graph_distance: 10 # Normalize distances beyond this
+
+# --- SFT Warmup Training ---
+sft:
+  dataset: "trajectories"  # Path to trajectory dataset
+  num_epochs: 3
+  batch_size: 1
+  gradient_accumulation_steps: 8
+  learning_rate: 2.0e-4
+  warmup_ratio: 0.1
+  max_steps: -1            # -1 = use num_epochs
+  save_steps: 100
+  eval_steps: 50
+  logging_steps: 10
+  fp16: false
+  bf16: true
+
+# --- GRPO RL Training ---
+grpo:
+  num_episodes: 500
+  num_generations: 4       # Generations per prompt for GRPO
+  batch_size: 1
+  gradient_accumulation_steps: 4
+  learning_rate: 5.0e-6
+  kl_coeff: 0.05
+  clip_range: 0.2
+  max_turns: 15            # Max agent turns per episode
+  max_tokens_per_turn: 2048
+  temperature: 0.7
+  top_p: 0.9
+  save_every: 50
+  eval_every: 25
+
+# --- Evaluation ---
+evaluation:
+  benchmark: "swe-bench-verified"
+  subset_size: 100         # Number of instances to evaluate on
+  timeout_per_instance: 300  # seconds
+  metrics:
+    - "resolve_rate"
+    - "localization_accuracy"
+    - "token_efficiency"
+    - "navigation_steps"
+    - "inference_latency"
+
+# --- Hardware ---
+hardware:
+  device: "cuda"
+  gpu_memory_limit: 15     # GB (T4 = 16GB, leave margin)
+  gradient_checkpointing: true
+  mixed_precision: "bf16"
