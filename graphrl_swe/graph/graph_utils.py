@@ -12,7 +12,7 @@ Provides methods to:
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Optional
+from typing import Any, Optional
 
 import networkx as nx
 import numpy as np
@@ -513,3 +513,114 @@ class GraphAnalyzer:
     def get_all_files(self) -> list[str]:
         """Get a sorted list of all unique file paths in the graph."""
         return sorted(self._file_to_nodes.keys())
+
+    # ── Graph Navigation & Query Utilities for Agents ─────────────
+
+    def find_nodes_by_name(self, name: str) -> list[str]:
+        """Find nodes matching a simple or qualified name."""
+        matches = []
+        name_lower = name.lower()
+        for node_id, data in self.graph.nodes(data=True):
+            node_name = data.get("name", "")
+            qname = data.get("qualified_name", "")
+            if (
+                node_name == name
+                or qname == name
+                or qname.endswith(f".{name}")
+                or node_id == name
+                or node_name.lower() == name_lower
+            ):
+                matches.append(node_id)
+        return matches
+
+    def get_neighbors(self, node_id: str) -> list[tuple[str, str]]:
+        """Return list of (neighbor_id, relation_type) for direct outgoing & incoming edges."""
+        nid = self._resolve_id(node_id)
+        if not nid or nid not in self.graph:
+            return []
+        neighbors = []
+        for _, tgt, data in self.graph.out_edges(nid, data=True):
+            neighbors.append((tgt, data.get("type", "out")))
+        for src, _, data in self.graph.in_edges(nid, data=True):
+            neighbors.append((src, f"in_{data.get('type', 'in')}"))
+        return neighbors
+
+    def find_callers(self, symbol_name: str) -> list[str]:
+        """Find functions or methods that call the given symbol."""
+        nodes = self.find_nodes_by_name(symbol_name)
+        callers = set()
+        for nid in nodes:
+            # Check inbound call edges
+            for src, _, data in self.graph.in_edges(nid, data=True):
+                if data.get("type") == EdgeType.CALLS:
+                    callers.add(src)
+            # Also check node attribute calls
+            for other_id, other_data in self.graph.nodes(data=True):
+                called_list = other_data.get("calls", [])
+                if any(symbol_name in c for c in called_list):
+                    callers.add(other_id)
+        return sorted(callers)
+
+    def find_callees(self, symbol_name: str) -> list[str]:
+        """Find functions or methods called by the given symbol."""
+        nodes = self.find_nodes_by_name(symbol_name)
+        callees = set()
+        for nid in nodes:
+            for _, tgt, data in self.graph.out_edges(nid, data=True):
+                if data.get("type") == EdgeType.CALLS:
+                    callees.add(tgt)
+            called_list = self.graph.nodes[nid].get("calls", [])
+            for c in called_list:
+                callees.add(c)
+        return sorted(callees)
+
+    def shortest_path(self, source: str, target: str) -> list[str]:
+        """Compute the shortest path node list between source and target."""
+        src_id = self._resolve_id(source)
+        tgt_id = self._resolve_id(target)
+        if not src_id or not tgt_id:
+            return []
+        try:
+            return nx.shortest_path(self.graph.to_undirected(), src_id, tgt_id)
+        except (nx.NetworkXNoPath, nx.NodeNotFound):
+            return []
+
+    def extract_neighborhood(self, center: str, radius: int = 1) -> nx.DiGraph:
+        """Extract neighborhood around a central entity."""
+        return self.get_neighborhood(center, radius=radius)
+
+    def graph_summary(self, top_k: int = 10) -> dict[str, Any]:
+        """Return a structured dictionary summary of the graph topology."""
+        total_nodes = self.graph.number_of_nodes()
+        total_edges = self.graph.number_of_edges()
+
+        type_counts = defaultdict(int)
+        for _, data in self.graph.nodes(data=True):
+            type_counts[data.get("type", "unknown")] += 1
+
+        top_hubs = []
+        if total_nodes > 0:
+            try:
+                pr = nx.pagerank(self.graph)
+                sorted_nodes = sorted(pr.items(), key=lambda x: x[1], reverse=True)[:top_k]
+                for nid, score in sorted_nodes:
+                    d = self.graph.nodes[nid]
+                    top_hubs.append({
+                        "id": nid,
+                        "name": d.get("name", nid),
+                        "type": d.get("type", ""),
+                        "filepath": d.get("filepath", ""),
+                        "pagerank": round(score, 4),
+                    })
+            except Exception:
+                pass
+
+        return {
+            "total_nodes": total_nodes,
+            "total_edges": total_edges,
+            "num_modules": type_counts.get(NodeType.MODULE, 0),
+            "num_classes": type_counts.get(NodeType.CLASS, 0),
+            "num_functions": type_counts.get(NodeType.FUNCTION, 0),
+            "num_methods": type_counts.get(NodeType.METHOD, 0),
+            "top_central_entities": top_hubs,
+        }
