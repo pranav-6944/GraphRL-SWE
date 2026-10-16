@@ -5,6 +5,7 @@
 - **Deadline:** Nov 12, 2026, 11:59 PM UTC
 - **Target Prize:** Overall Best Paper ($15K)
 - **Paper Title:** "GraphRL-SWE: Graph-Guided Reinforcement Learning for Efficient Code Agent Navigation on Consumer Hardware"
+- **GitHub Repository:** https://github.com/pranav-6944/GraphRL-SWE
 
 ## Key File Locations
 - **Config:** `configs/default.yaml` (L1-113) — model, lora, graph, rewards, sft, grpo, evaluation params
