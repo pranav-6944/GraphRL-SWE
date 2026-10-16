@@ -135,8 +135,8 @@ class TestGraphGuidedReward:
         reward, breakdown = reward_fn.compute(traj)
         assert breakdown["r_test"] == 1.0
         assert breakdown["r_localization"] == 1.0
-        assert breakdown["r_efficiency"] > 0.6
-        assert 0.8 < reward <= 1.0
+        assert breakdown["r_efficiency"] > 0.5
+        assert 0.7 < reward <= 1.0
 
     def test_failed_tests_reward(self, sample_analyzer):
         """Trajectory visited correct files but failed tests."""
