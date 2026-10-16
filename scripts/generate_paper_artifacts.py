@@ -13,7 +13,12 @@ Outputs:
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
+from typing import Any
+
+# Add project root to sys.path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -69,7 +74,7 @@ def generate_all_artifacts(output_root: str | Path = "./paper"):
     # 6. Generate Tables 1 & 2
     generate_tables(data, tbl_dir)
 
-    print(f"✅ All publication artifacts successfully generated in {root}")
+    print(f"[SUCCESS] All publication artifacts successfully generated in {root}")
 
 
 def generate_fig1_architecture(output_path: Path):
