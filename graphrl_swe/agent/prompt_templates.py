@@ -157,45 +157,47 @@ def parse_action_response(response_text: str) -> tuple[str, str, dict[str, Any]]
         (thought, action_name, action_args_dict)
     """
     thought = ""
-    action_str = ""
+    action_raw = ""
 
-    lines = response_text.strip().split("\n")
-    thought_lines = []
-    action_line = ""
-
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith("Thought:"):
-            thought_lines.append(stripped[len("Thought:"):].strip())
-        elif stripped.startswith("Action:"):
-            action_line = stripped[len("Action:"):].strip()
-        elif action_line == "":
-            thought_lines.append(stripped)
-
-    thought = " ".join(thought_lines).strip()
-
-    if not action_line:
-        # Fallback: check if the model just output an action without prefix
-        for candidate in ["open_file", "edit_file", "search_code", "run_command", "graph_neighbors", "finish"]:
-            if candidate in response_text:
-                action_line = response_text[response_text.index(candidate):].split("\n")[0].strip()
+    action_idx = response_text.find("Action:")
+    if action_idx != -1:
+        thought_part = response_text[:action_idx]
+        action_raw = response_text[action_idx + len("Action:"):].strip()
+        # Clean thought
+        thought = thought_part.replace("Thought:", "").strip()
+    else:
+        # Fallback: check if any known action name is present
+        for candidate in ["open_file", "edit_file", "search_code", "run_command", "graph_neighbors", "graph_callers", "graph_callees", "graph_subgraph", "graph_path", "finish"]:
+            cand_idx = response_text.find(candidate)
+            if cand_idx != -1:
+                thought = response_text[:cand_idx].replace("Thought:", "").strip()
+                action_raw = response_text[cand_idx:].strip()
                 break
 
-    if not action_line:
+    if not action_raw:
+        thought = response_text.replace("Thought:", "").strip()
         return thought, "noop", {}
 
-    # Parse function call: func_name(arg1="val", arg2=123)
-    if "(" in action_line and action_line.endswith(")"):
-        name = action_line[:action_line.index("(")].strip()
-        args_raw = action_line[action_line.index("(") + 1:-1].strip()
+    # Find the matching closing parenthesis for function calls
+    if "(" in action_raw:
+        paren_start = action_raw.index("(")
+        name = action_raw[:paren_start].strip()
+        
+        # Find corresponding closing paren (or last paren)
+        last_paren = action_raw.rfind(")")
+        if last_paren > paren_start:
+            args_raw = action_raw[paren_start + 1:last_paren].strip()
+        else:
+            args_raw = action_raw[paren_start + 1:].strip()
+
         parsed_args = _parse_args_string(args_raw)
         return thought, name, parsed_args
 
-    return thought, action_line, {}
+    return thought, action_raw.split("\n")[0].strip(), {}
 
 
 def _parse_args_string(args_raw: str) -> dict[str, Any]:
-    """Helper to parse key=value arguments from string."""
+    """Helper to parse key=value arguments from string, supporting multi-line strings."""
     if not args_raw:
         return {}
 
@@ -207,14 +209,13 @@ def _parse_args_string(args_raw: str) -> dict[str, Any]:
         except Exception:
             pass
 
-    # Simple comma split with quotes preservation
     import re
-    # Match key="value" or key=123 or positional single strings
-    pattern = re.compile(r'(\w+)\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^,]+))')
+    # Match key="value" or key='value' or key=value with DOTALL for multi-line string contents
+    pattern = re.compile(r'(\w+)\s*=\s*(?:"(.*?)"|\'(.*?)\'|([^,]+))', re.DOTALL)
     matches = pattern.findall(args_raw)
     for m in matches:
         key = m[0]
-        val = m[1] or m[2] or m[3]
+        val = m[1] if m[1] != "" else (m[2] if m[2] != "" else m[3])
         val = val.strip()
         if val.isdigit():
             val = int(val)
@@ -225,7 +226,6 @@ def _parse_args_string(args_raw: str) -> dict[str, Any]:
         parsed[key] = val
 
     if not parsed and args_raw:
-        # Positional single string argument, e.g. finish("Fixed typo in user auth")
         cleaned = args_raw.strip('"\'')
         parsed["arg"] = cleaned
 

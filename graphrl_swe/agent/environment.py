@@ -263,13 +263,17 @@ class SWEEnvironment:
             return f"No entity or file matching '{symbol_or_file}' found in code graph."
 
         node_id = nodes[0]
+        node_name = self.analyzer.graph.nodes[node_id].get("name", node_id)
         neighbors = self.analyzer.get_neighbors(node_id)
         if not neighbors:
-            return f"Entity '{node_id}' has no direct graph neighbors."
+            return f"Entity '{node_name}' ({node_id}) has no direct graph neighbors."
 
-        lines = [f"Structural connections for `{node_id}`:"]
+        lines = [f"Structural connections for `{node_name}` ({node_id}):"]
         for n, rel in neighbors[:25]:
-            lines.append(f"  [{rel}] -> `{n}` ({self.analyzer.graph.nodes[n].get('type', '')})")
+            n_data = self.analyzer.graph.nodes.get(n, {})
+            n_name = n_data.get("name", n)
+            n_type = n_data.get("type", "")
+            lines.append(f"  [{rel}] -> `{n_name}` ({n_type}) [{n}]")
 
         return "\n".join(lines)
 
@@ -282,7 +286,12 @@ class SWEEnvironment:
         if not callers:
             return f"No callers found for '{symbol}' in code graph."
 
-        return f"Callers of `{symbol}` ({len(callers)} found):\n" + "\n".join([f"- `{c}`" for c in callers[:20]])
+        lines = [f"Callers of `{symbol}` ({len(callers)} found):"]
+        for c in callers[:20]:
+            c_data = self.analyzer.graph.nodes.get(c, {})
+            c_name = c_data.get("name", c)
+            lines.append(f"- `{c_name}` ({c})")
+        return "\n".join(lines)
 
     def graph_callees(self, symbol: str) -> str:
         """Find functions/methods called by this symbol."""
@@ -293,7 +302,12 @@ class SWEEnvironment:
         if not callees:
             return f"No outgoing calls found for '{symbol}'."
 
-        return f"Callees of `{symbol}` ({len(callees)} found):\n" + "\n".join([f"- `{c}`" for c in callees[:20]])
+        lines = [f"Callees of `{symbol}` ({len(callees)} found):"]
+        for c in callees[:20]:
+            c_data = self.analyzer.graph.nodes.get(c, {})
+            c_name = c_data.get("name", c)
+            lines.append(f"- `{c_name}` ({c})")
+        return "\n".join(lines)
 
     def graph_subgraph(self, symbol_or_file: str, radius: int = 1) -> str:
         """Extract a sub-network surrounding an entity."""

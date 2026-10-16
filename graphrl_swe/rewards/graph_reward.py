@@ -72,7 +72,7 @@ class TrajectoryInfo:
         for step in self.steps:
             if (
                 step.target_file
-                and step.action_type == "edit"
+                and step.action_type in ("edit", "edit_file")
                 and step.target_file not in seen
             ):
                 files.append(step.target_file)
