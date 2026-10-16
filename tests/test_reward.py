@@ -84,7 +84,7 @@ def sample_analyzer(temp_repo):
     parser = ASTParser()
     modules = parser.parse_repository(temp_repo)
     builder = CodeGraphBuilder()
-    graph = builder.build_from_modules(modules)
+    graph = builder.build(modules)
     return GraphAnalyzer(graph)
 
 
